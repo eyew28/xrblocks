@@ -297,7 +297,6 @@ export class Options {
   enableAI() {
     this.ai.enabled = true;
     this.ai.gemini.enabled = true;
-    this.ai.gemini.live.enabled = true;
     return this;
   }
 

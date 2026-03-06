@@ -1,39 +1,17 @@
-export interface GeminiLiveOptions {
-  enabled?: boolean;
-  model?: string;
-  startOfSpeechSensitivity?: 'LOW' | 'HIGH';
-  endOfSpeechSensitivity?: 'LOW' | 'HIGH';
-  voiceName?: string;
-  screenshotInterval?: number;
-  audioConfig?: {
-    sampleRate?: number;
-    channelCount?: number;
-    echoCancellation?: boolean;
-    noiseSuppression?: boolean;
-    autoGainControl?: boolean;
-  };
-}
+import * as GoogleGenAITypes from '@google/genai';
+
+export const GEMINI_DEFAULT_FLASH_MODEL = 'gemini-2.5-flash';
+export const GEMINI_DEFAULT_LIVE_MODEL =
+  'gemini-2.5-flash-native-audio-preview-12-2025';
 
 export class GeminiOptions {
   apiKey = '';
   urlParam = 'geminiKey';
   keyValid = false;
   enabled = false;
-  model = 'gemini-2.0-flash';
-  config = {};
-  live: GeminiLiveOptions = {
-    enabled: false,
-    model: 'gemini-live-2.5-flash-preview',
-    voiceName: 'Aoede',
-    screenshotInterval: 3000,
-    audioConfig: {
-      sampleRate: 16000,
-      channelCount: 1,
-      echoCancellation: true,
-      noiseSuppression: true,
-      autoGainControl: true,
-    },
-  };
+  model = GEMINI_DEFAULT_FLASH_MODEL;
+  liveModel = GEMINI_DEFAULT_LIVE_MODEL;
+  config: GoogleGenAITypes.GenerateContentConfig = {};
 }
 
 export class OpenAIOptions {

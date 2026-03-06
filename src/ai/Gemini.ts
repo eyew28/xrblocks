@@ -86,7 +86,7 @@ export class Gemini extends BaseAIModel {
 
   async startLiveSession(
     params: GoogleGenAITypes.LiveConnectConfig = {},
-    model = 'gemini-2.5-flash-native-audio-preview-09-2025'
+    model?: string
   ) {
     if (!this.isLiveAvailable()) {
       throw new Error(
@@ -142,7 +142,7 @@ export class Gemini extends BaseAIModel {
     };
     try {
       const connectParams: GoogleGenAITypes.LiveConnectParameters = {
-        model: model,
+        model: model ?? this.options.liveModel,
         callbacks: callbacks,
         config: defaultConfig,
       };
@@ -207,7 +207,7 @@ export class Gemini extends BaseAIModel {
     }
 
     const options = this.options;
-    const config = options.config || {};
+    const config: GoogleGenAITypes.GenerateContentConfig = options.config || {};
 
     if (!('type' in input)) {
       const response = await this.ai!.models.generateContent({
