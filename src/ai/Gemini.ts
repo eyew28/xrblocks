@@ -1,10 +1,8 @@
 import * as GoogleGenAITypes from '@google/genai';
-
-import type {Tool} from '../agent/Tool';
-
 import {GeminiOptions} from './AIOptions';
 import {GeminiResponse} from './AITypes';
 import {BaseAIModel} from './BaseAIModel';
+import {isRunningInGeminiCanvas} from '../utils/EnvironmentUtils';
 
 let createPartFromUri: (uri: string, mimeType: string) => GoogleGenAITypes.Part;
 let createUserContent:
@@ -52,6 +50,7 @@ export interface GeminiQueryInput {
   parts?: GoogleGenAITypes.Part[];
   config?: GoogleGenAITypes.LiveConnectConfig;
   data?: GoogleGenAITypes.LiveSendRealtimeInputParameters;
+  useExponentialBackoff?: boolean;
 }
 
 export class Gemini extends BaseAIModel {
@@ -74,7 +73,8 @@ export class Gemini extends BaseAIModel {
       return false;
     }
     if (!this.inited) {
-      this.ai = new GoogleGenAI({apiKey: this.options.apiKey});
+      // Use a random string as API key to avoid Google GenAI from complaining.
+      this.ai = new GoogleGenAI({apiKey: this.options.apiKey || 'X'});
       this.inited = true;
     }
     return true;
@@ -197,9 +197,22 @@ export class Gemini extends BaseAIModel {
     };
   }
 
-  async query(
-    input: GeminiQueryInput | {prompt: string},
-    _tools: Tool[] = []
+  override async query(
+    input: GeminiQueryInput | {prompt: string}
+  ): Promise<GeminiResponse | null> {
+    const useExponentialBackoff =
+      'useExponentialBackoff' in input &&
+      input.useExponentialBackoff !== undefined
+        ? input.useExponentialBackoff
+        : isRunningInGeminiCanvas();
+    if (useExponentialBackoff) {
+      return this.queryWithExponentialFalloff(input);
+    }
+    return this.queryOnce(input);
+  }
+
+  protected async queryOnce(
+    input: GeminiQueryInput | {prompt: string}
   ): Promise<GeminiResponse | null> {
     if (!this.inited) {
       console.warn('Gemini not inited.');
@@ -270,6 +283,28 @@ export class Gemini extends BaseAIModel {
     return {text: response.text || null};
   }
 
+  // Try to query multiple times with exponential backoff.
+  // Only used within a Gemini Canvas environment.
+  protected async queryWithExponentialFalloff(
+    input: GeminiQueryInput | {prompt: string}
+  ): Promise<GeminiResponse | null> {
+    const delays = [1000, 2000, 4000, 8000, 16000];
+    let attempt = 0;
+    let lastError: unknown | null = null;
+    while (attempt < delays.length) {
+      try {
+        return await this.queryOnce(input);
+      } catch (error: unknown) {
+        console.warn(`Attempt ${attempt + 1} failed:`, error);
+        lastError = error;
+        await new Promise((resolve) => setTimeout(resolve, delays[attempt]));
+        attempt++;
+      }
+    }
+    console.error('Failed to query with exponential backoff:', lastError);
+    return null;
+  }
+
   async generate(
     prompt: string | string[],
     type: 'image' = 'image',
@@ -311,5 +346,9 @@ export class Gemini extends BaseAIModel {
         }
       }
     }
+  }
+
+  override async hasApiKey(): Promise<boolean> {
+    return this.options.apiKey !== '' || isRunningInGeminiCanvas();
   }
 }

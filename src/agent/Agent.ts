@@ -71,7 +71,7 @@ export class Agent {
 
       const response: GeminiResponse | null = await (
         this.ai.model as Gemini
-      ).query({type: 'text', text: context}, this.tools);
+      ).query({type: 'text', text: context});
 
       this.memory.addShortTerm({role: 'ai', content: JSON.stringify(response)});
 

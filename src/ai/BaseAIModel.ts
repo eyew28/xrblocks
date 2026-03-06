@@ -11,4 +11,8 @@ export abstract class BaseAIModel {
     _input: object,
     _tools: []
   ): Promise<GeminiResponse | string | null>;
+
+  async hasApiKey(): Promise<boolean> {
+    return false;
+  }
 }

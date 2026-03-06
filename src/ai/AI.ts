@@ -106,11 +106,11 @@ export class AI extends Script {
     modelOptions: ModelOptions
   ) {
     const apiKey = await this.resolveApiKey(modelOptions);
-    if (!apiKey || !this.isValidApiKey(apiKey)) {
+    if ((!apiKey || !this.isValidApiKey(apiKey)) && !this.hasApiKey()) {
       console.error(`No valid API key found for ${this.options.model}`);
       return;
     }
-    modelOptions.apiKey = apiKey;
+    modelOptions.apiKey = apiKey || '';
     this.model = new ModelClass(modelOptions as GeminiOptions & OpenAIOptions);
     try {
       await this.model.init();
@@ -280,6 +280,9 @@ export class AI extends Script {
     if (!this.options) return false;
     const modelOptions = this.options[this.options.model];
     if (!modelOptions) return false;
+
+    if (this.model?.hasApiKey ? await this.model.hasApiKey() : false)
+      return true;
 
     const apiKey = await this.resolveApiKey(modelOptions);
     return apiKey && this.isValidApiKey(apiKey);
