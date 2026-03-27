@@ -129,19 +129,19 @@ export default [
   },
   {
     input: Object.fromEntries(
-      globSync('src/addons/**/*.{js,ts}', {ignore: 'src/addons/**/cli/**'}).map(
-        (file) => [
-          // This removes `src/` as well as the file extension from
-          // each file, so e.g. src/nested/foo.js becomes nested/foo
-          path.relative(
-            'src',
-            file.slice(0, file.length - path.extname(file).length)
-          ),
-          // This expands the relative paths to absolute paths, so
-          // e.g. src/nested/foo becomes /project/src/nested/foo.js
-          fileURLToPath(new URL(file, import.meta.url)),
-        ]
-      )
+      globSync('src/addons/**/*.{js,ts}', {
+        ignore: ['src/addons/**/cli/**', 'src/addons/**/*.d.ts'],
+      }).map((file) => [
+        // This removes `src/` as well as the file extension from
+        // each file, so e.g. src/nested/foo.js becomes nested/foo
+        path.relative(
+          'src',
+          file.slice(0, file.length - path.extname(file).length)
+        ),
+        // This expands the relative paths to absolute paths, so
+        // e.g. src/nested/foo becomes /project/src/nested/foo.js
+        fileURLToPath(new URL(file, import.meta.url)),
+      ])
     ),
     external: [...externalPackages, ...xrblocksPackages],
     output: {
@@ -168,6 +168,38 @@ export default [
       // Projects with a custom build system.
       'demos/drone/**',
     ],
+  }).map((file) => ({
+    input: file,
+    external: () => true,
+    output: {
+      file: path.join(
+        path.dirname(file),
+        'build',
+        path.basename(file).replace(/\.ts$/, '.js')
+      ),
+      format: 'esm',
+    },
+    plugins: [
+      typescript({
+        tsconfig: false,
+        include: [file],
+        compilerOptions: {
+          target: 'ES2022',
+          module: 'ESNext',
+          moduleResolution: 'bundler',
+          esModuleInterop: true,
+          forceConsistentCasingInFileNames: true,
+          strict: true,
+          skipLibCheck: true,
+          declaration: false,
+        },
+      }),
+    ],
+  })),
+  // Enable demo projects (excluding those with a custom build system) to use TypeScript
+  // and import it in their index.html via by referencing, e.g. `./build/main.js`.
+  ...globSync('samples/**/*.ts', {
+    ignore: ['samples/**/node_modules/**', 'samples/**/build/**'],
   }).map((file) => ({
     input: file,
     external: () => true,
