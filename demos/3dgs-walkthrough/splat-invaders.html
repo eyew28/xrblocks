@@ -31,10 +31,13 @@
     <script type="module">
       import {SplatMesh, SparkRenderer} from '@sparkjsdev/spark';
       import * as THREE from 'three';
+      import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
       import * as xb from 'xrblocks';
 
       /** Same SPZ asset and transform as `main.js` SPLAT_ASSETS[0]. */
       const SPLAT_SPZ_URL = '3dgs/shard.splat';
+
+      const TIE_FIGHTER_GLB_URL = '../models/low_poly_tie_fighter_star_wars.glb';
 
       const GAME_STATE = {
         START: 'start',
@@ -62,7 +65,8 @@
           this.timerText = null;
           this.livesText = null;
           this.damageOverlay = null;
-          
+          this.alienModelTemplate = null;
+
           this.listener = new THREE.AudioListener();
         }
 
@@ -94,7 +98,24 @@
           this.createGun();
           this.createDamageOverlay();
 
+          await this.prepareAlienModel();
+
           this.syncUI();
+        }
+
+        async prepareAlienModel() {
+          const loader = new GLTFLoader();
+          const gltf = await loader.loadAsync(TIE_FIGHTER_GLB_URL);
+          const model = gltf.scene;
+          model.updateMatrixWorld(true);
+          const box = new THREE.Box3().setFromObject(model);
+          const size = box.getSize(new THREE.Vector3());
+          const maxDim = Math.max(size.x, size.y, size.z, 1e-6);
+          model.scale.setScalar(0.35 / maxDim);
+          model.updateMatrixWorld(true);
+          const box2 = new THREE.Box3().setFromObject(model);
+          model.position.sub(box2.getCenter(new THREE.Vector3()));
+          this.alienModelTemplate = model;
         }
 
         syncUI() {
@@ -249,14 +270,8 @@
 
         spawnAlien() {
           const group = new THREE.Group();
-          const color = new THREE.Color().setHSL(Math.random(), 0.8, 0.5);
-          
-          const body = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.2, 0.1), new THREE.MeshPhongMaterial({ color: color }));
-          const eyeL = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.05), new THREE.MeshBasicMaterial({color:0xffffff}));
-          const eyeR = eyeL.clone();
-          eyeL.position.set(-0.08, 0.05, 0.06);
-          eyeR.position.set(0.08, 0.05, 0.06);
-          group.add(body, eyeL, eyeR);
+          const tie = this.alienModelTemplate.clone(true);
+          group.add(tie);
 
           const distance = 12 + Math.random() * 5;
           const angle = Math.random() * Math.PI * 2;

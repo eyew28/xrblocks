@@ -141,8 +141,6 @@ dist
 *.wav
 *.mp4
 *.webm
-*.gltf
-*.glb
 
 # Build
 build
