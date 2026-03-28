@@ -10,7 +10,7 @@ const PROPRIETARY_ASSETS_BASE_URL =
 const SPLAT_ASSETS = [
   {
     url: PROPRIETARY_ASSETS_BASE_URL + 'horse-qvb.spz',
-    scale: new THREE.Vector3(1.3, -1.3, 1.3),
+    scale: new THREE.Vector3(2, -2, 2),
     position: new THREE.Vector3(0, 2.15, 0),
     quaternion: new THREE.Quaternion(1, 0, 0, 0),
   },
@@ -25,6 +25,22 @@ const SPLAT_ASSETS = [
 const FADE_DURATION_S = 1.0; // seconds
 const MOVE_SPEED = 0.05;
 
+/** Ignore stick noise; axes use the standard gamepad range [-1, 1]. */
+const STICK_DEADZONE = 0.2;
+/** Radians per second at full left-stick deflection (yaw). */
+const STICK_YAW_RAD_S = 2.25;
+/** Metres per second at full left-stick deflection (vertical). */
+const STICK_VERTICAL_M_S = 1.2;
+/**
+ * Scales right-stick forward/strafe to roughly match keyboard speed at ~60 Hz
+ * (MOVE_SPEED is applied per frame without delta time).
+ */
+const STICK_MOVE_SCALE = MOVE_SPEED * 60;
+
+function stickAxis(value) {
+  return Math.abs(value) < STICK_DEADZONE ? 0 : value;
+}
+
 function easeInOutSine(x) {
   return -(Math.cos(Math.PI * x) - 1) / 2;
 }
@@ -32,6 +48,7 @@ function easeInOutSine(x) {
 const forward = new THREE.Vector3();
 const right = new THREE.Vector3();
 const moveDirection = new THREE.Vector3();
+const yawQuat = new THREE.Quaternion();
 
 /**
  * An XR-Blocks demo that displays room-scale 3DGS models, allowing smooth
@@ -71,8 +88,9 @@ class WalkthroughManager extends xb.Script {
     this.fadeProgress = null;
     this.nextIndex = null;
 
-    // Locomotion state.
+    // Locomotion state (reference-space offset + yaw from left thumbstick).
     this.locomotionOffset = new THREE.Vector3();
+    this.locomotionYaw = 0;
     this.baseReferenceSpace = null;
     this.keys = {w: false, a: false, s: false, d: false};
 
@@ -120,6 +138,7 @@ class WalkthroughManager extends xb.Script {
     super.onXRSessionEnded();
     this.baseReferenceSpace = null;
     this.locomotionOffset.set(0, 0, 0);
+    this.locomotionYaw = 0;
   }
 
   update() {
@@ -127,7 +146,7 @@ class WalkthroughManager extends xb.Script {
     const dt = xb.getDeltaTime();
 
     this.updateFade(dt);
-    this.updateLocomotion();
+    this.updateLocomotion(dt);
   }
 
   /** Handles the fade-out → fade-in crossfade between splats. */
@@ -162,33 +181,74 @@ class WalkthroughManager extends xb.Script {
     }
   }
 
-  /** WASD locomotion via XR reference space offset. */
-  updateLocomotion() {
+  /**
+   * WASD and XR thumbstick locomotion via `xb.core.input` gamepads
+   * (see https://xrblocks.github.io/docs/manual/Inputs/).
+   * Left stick: Y = vertical, X = yaw. Right stick: Y = forward/back, X = strafe.
+   */
+  updateLocomotion(dt) {
     const xr = xb.core.renderer?.xr;
     if (!xr?.isPresenting) return;
-
-    const camera = xr.getCamera();
-    if (!camera) return;
-
-    camera.getWorldDirection(forward);
-    forward.y = 0;
-    forward.normalize();
-    right.crossVectors(forward, THREE.Object3D.DEFAULT_UP).normalize();
-
-    moveDirection.set(0, 0, 0);
-    if (this.keys.w) moveDirection.add(forward);
-    if (this.keys.s) moveDirection.sub(forward);
-    if (this.keys.a) moveDirection.sub(right);
-    if (this.keys.d) moveDirection.add(right);
-    if (moveDirection.lengthSq() === 0) return;
-    moveDirection.normalize();
 
     if (!this.baseReferenceSpace) {
       this.baseReferenceSpace = xr.getReferenceSpace();
     }
 
-    this.locomotionOffset.addScaledVector(moveDirection, -MOVE_SPEED);
-    const transform = new XRRigidTransform(this.locomotionOffset);
+    const input = xb.core.input;
+    const leftGp = input.leftController?.gamepad;
+    const rightGp = input.rightController?.gamepad;
+
+    if (leftGp?.axes && leftGp.axes.length >= 2) {
+      const lx = stickAxis(leftGp.axes[0]);
+      const ly = stickAxis(leftGp.axes[1]);
+      // Gamepad Y is negative when the stick is pushed up.
+      this.locomotionYaw -= lx * STICK_YAW_RAD_S * dt;
+      this.locomotionOffset.y += -ly * STICK_VERTICAL_M_S * dt;
+    }
+
+    const camera = xr.getCamera();
+    if (camera) {
+      camera.getWorldDirection(forward);
+      forward.y = 0;
+      if (forward.lengthSq() > 1e-10) {
+        forward.normalize();
+        right.crossVectors(forward, THREE.Object3D.DEFAULT_UP).normalize();
+
+        if (rightGp?.axes && rightGp.axes.length >= 2) {
+          const rx = stickAxis(rightGp.axes[0]);
+          const ry = stickAxis(rightGp.axes[1]);
+          const forwardAmount = -ry;
+          this.locomotionOffset.addScaledVector(
+            forward,
+            -STICK_MOVE_SCALE * dt * forwardAmount
+          );
+          this.locomotionOffset.addScaledVector(
+            right,
+            -STICK_MOVE_SCALE * dt * rx
+          );
+        }
+
+        moveDirection.set(0, 0, 0);
+        if (this.keys.w) moveDirection.add(forward);
+        if (this.keys.s) moveDirection.sub(forward);
+        if (this.keys.a) moveDirection.sub(right);
+        if (this.keys.d) moveDirection.add(right);
+        if (moveDirection.lengthSq() > 0) {
+          moveDirection.normalize();
+          this.locomotionOffset.addScaledVector(moveDirection, -MOVE_SPEED);
+        }
+      }
+    }
+
+    yawQuat.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, this.locomotionYaw);
+    const transform = new XRRigidTransform(
+      {
+        x: this.locomotionOffset.x,
+        y: this.locomotionOffset.y,
+        z: this.locomotionOffset.z,
+      },
+      {x: yawQuat.x, y: yawQuat.y, z: yawQuat.z, w: yawQuat.w}
+    );
     xr.setReferenceSpace(
       this.baseReferenceSpace.getOffsetReferenceSpace(transform)
     );
