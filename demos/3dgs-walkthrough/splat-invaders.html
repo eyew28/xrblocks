@@ -34,7 +34,7 @@
       import * as xb from 'xrblocks';
 
       /** Same SPZ asset and transform as `main.js` SPLAT_ASSETS[0]. */
-      const SPLAT_SPZ_URL = '3dgs/qvb-zodiac.spz';
+      const SPLAT_SPZ_URL = '3dgs/horse-qvb-trimmed.splat';
 
       const GAME_STATE = {
         START: 'start',
@@ -76,9 +76,9 @@
 
           const splatMesh = new SplatMesh({url: SPLAT_SPZ_URL});
           await splatMesh.initialized;
-          splatMesh.position.set(0, 1.15, 0);
+          splatMesh.position.set(0, 1.15, -2);
           splatMesh.quaternion.set(1, 0, 0, 0);
-          splatMesh.scale.set(2, -2, 2);
+          splatMesh.scale.set(1, 1, 1);
 
           const sparkRenderer = new SparkRenderer({
             renderer: xb.core.renderer,
