@@ -140,7 +140,7 @@
         }
 
         async prepareDeathStarModel() {
-          this.deathStarTemplate = await this.loadNormalizedGltf(DEATH_STAR_GLB_URL, 0.15);
+          this.deathStarTemplate = await this.loadNormalizedGltf(DEATH_STAR_GLB_URL, 0.3);
         }
 
         spawnDeathStar() {
@@ -150,7 +150,7 @@
           }
           const g = new THREE.Group();
           g.add(this.deathStarTemplate.clone(true));
-          g.position.set(0, 1.4, 0);
+          g.position.set(0, 3, 0);
           this.add(g);
           this.deathStarGroup = g;
           g.updateMatrixWorld(true);
