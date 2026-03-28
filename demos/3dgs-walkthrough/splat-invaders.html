@@ -39,7 +39,6 @@
 
       const TIE_FIGHTER_GLB_URL = '../models/low_poly_tie_fighter_star_wars.glb';
       const LEGO_XWING_GLB_URL = '../models/lego_x-wing.glb';
-      const DEATH_STAR_GLB_URL = '../models/death_star_2_remake.glb';
 
       const GAME_STATE = {
         START: 'start',
@@ -69,17 +68,6 @@
           this.damageOverlay = null;
           this.gunModelTemplate = null;
           this.alienModelTemplate = null;
-          this.deathStarTemplate = null;
-          this.deathStarGroup = null;
-          this.deathStarHitRadius = 1.8;
-
-          this._vDsWorld = new THREE.Vector3();
-          this._vAlienWorld = new THREE.Vector3();
-          this._vMove = new THREE.Vector3();
-          this._vPerp = new THREE.Vector3();
-          this._vHit = new THREE.Vector3();
-          this._vSpawnWorld = new THREE.Vector3();
-          this._vWorldUp = new THREE.Vector3(0, 1, 0);
 
           this.listener = new THREE.AudioListener();
         }
@@ -94,12 +82,9 @@
 
           const splatMesh = new SplatMesh({url: SPLAT_SPZ_URL});
           await splatMesh.initialized;
-          splatMesh.position.set(0, 1.15, -1);
-          splatMesh.quaternion.setFromAxisAngle(
-            new THREE.Vector3(0, 0, 1),
-            Math.PI
-          );
-          splatMesh.scale.set(.25, .25, .25);
+          splatMesh.position.set(0, 0.15, -1);
+          splatMesh.quaternion.set(1, 0, 0, 0);
+          splatMesh.scale.set(.35, .35, .35);
 
           const sparkRenderer = new SparkRenderer({
             renderer: xb.core.renderer,
@@ -114,11 +99,7 @@
           this.createMenu();
           this.createDamageOverlay();
 
-          await Promise.all([
-            this.prepareGunModel(),
-            this.prepareAlienModel(),
-            this.prepareDeathStarModel(),
-          ]);
+          await Promise.all([this.prepareGunModel(), this.prepareAlienModel()]);
           this.createGun();
 
           this.syncUI();
@@ -145,73 +126,6 @@
 
         async prepareAlienModel() {
           this.alienModelTemplate = await this.loadNormalizedGltf(LEGO_XWING_GLB_URL, 0.35);
-        }
-
-        async prepareDeathStarModel() {
-          const loader = new GLTFLoader();
-          const gltf = await loader.loadAsync(DEATH_STAR_GLB_URL);
-          const model = gltf.scene;
-          model.updateMatrixWorld(true);
-          const box = new THREE.Box3();
-          let hasMesh = false;
-          model.traverse((o) => {
-            if (o.isMesh) {
-              const b = new THREE.Box3().setFromObject(o);
-              if (!b.isEmpty()) {
-                if (!hasMesh) {
-                  box.copy(b);
-                  hasMesh = true;
-                } else {
-                  box.union(b);
-                }
-              }
-            }
-          });
-          if (!hasMesh) {
-            this.deathStarTemplate = await this.loadNormalizedGltf(DEATH_STAR_GLB_URL, 0.015);
-            return;
-          }
-          const center = box.getCenter(new THREE.Vector3());
-          const size = box.getSize(new THREE.Vector3());
-          model.position.sub(center);
-          model.updateMatrixWorld(true);
-          const maxDim = Math.max(size.x, size.y, size.z, 1e-6);
-          model.scale.setScalar(0.015 / maxDim);
-          this.deathStarTemplate = model;
-        }
-
-        spawnDeathStar() {
-          if (this.deathStarGroup) {
-            this.remove(this.deathStarGroup);
-            this.deathStarGroup = null;
-          }
-          const g = new THREE.Group();
-          g.add(this.deathStarTemplate.clone(true));
-
-          const cam = xb.core.camera;
-          const camPos = new THREE.Vector3();
-          cam.getWorldPosition(camPos);
-          const forward = new THREE.Vector3();
-          cam.getWorldDirection(forward);
-          forward.y = 0;
-          if (forward.lengthSq() < 1e-6) {
-            forward.set(0, 0, -1);
-          } else {
-            forward.normalize();
-          }
-          this._vSpawnWorld.copy(camPos).addScaledVector(forward, 3.0);
-          this._vSpawnWorld.y = camPos.y + 0.35;
-
-          this.updateMatrixWorld(true);
-          g.position.copy(this._vSpawnWorld);
-          this.worldToLocal(g.position);
-
-          this.add(g);
-          this.deathStarGroup = g;
-          g.updateMatrixWorld(true);
-          const bbox = new THREE.Box3().setFromObject(g);
-          const sz = bbox.getSize(new THREE.Vector3());
-          this.deathStarHitRadius = 0.5 * Math.max(sz.x, sz.y, sz.z) + 0.45;
         }
 
         syncUI() {
@@ -351,8 +265,6 @@
           this.aliens = [];
           this.bullets = [];
 
-          this.spawnDeathStar();
-
           for (let i = 0; i < this.invaderCount; i++) {
             this.spawnAlien();
           }
@@ -443,10 +355,6 @@
 
         endGame(title = 'MISSION COMPLETE') {
           this.state = GAME_STATE.END;
-          if (this.deathStarGroup) {
-            this.remove(this.deathStarGroup);
-            this.deathStarGroup = null;
-          }
           this.syncUI();
 
           this.titleText.setText(title);
@@ -491,10 +399,6 @@
               this.endGame('TIME EXPIRED');
             }
 
-            if (this.deathStarGroup) {
-              this.deathStarGroup.rotateOnWorldAxis(this._vWorldUp, 0.2 * dt);
-            }
-
             // Update UI Strings
             if (this.scoreText) this.scoreText.setText(`SCORE: ${this.score}`);
             if (this.timerText) this.timerText.setText(`${Math.ceil(this.timeLeft)}s`);
@@ -529,60 +433,38 @@
               }
             }
 
-            // Invaders fly toward Death Star (world-space target; lookAt expects world coords)
-            if (this.deathStarGroup) {
-              this.deathStarGroup.getWorldPosition(this._vDsWorld);
-            }
+            // Invaders movement and collision
             this.aliens.forEach(a => {
-              const parent = a.mesh.parent;
-              if (!this.deathStarGroup || !parent) return;
+              const toPlayer = new THREE.Vector3(cam.position.x, a.mesh.position.y, cam.position.z).sub(a.mesh.position).normalize();
+              a.mesh.position.addScaledVector(toPlayer, a.speed * dt);
+              
+              const sideDir = new THREE.Vector3(1, 0, 0).applyQuaternion(a.mesh.quaternion);
+              a.mesh.position.addScaledVector(sideDir, Math.sin(time * 2 + a.offset) * 0.02);
 
-              a.mesh.getWorldPosition(this._vAlienWorld);
-              this._vMove.subVectors(this._vDsWorld, this._vAlienWorld);
-              const len = this._vMove.length();
-              if (len > 1e-5) {
-                this._vMove.multiplyScalar(1 / len);
-                this._vAlienWorld.addScaledVector(this._vMove, a.speed * dt);
-                this._vPerp.set(-this._vMove.z, 0, this._vMove.x);
-                if (this._vPerp.lengthSq() > 1e-8) {
-                  this._vPerp.normalize();
-                  this._vAlienWorld.addScaledVector(
-                    this._vPerp,
-                    Math.sin(time * 2 + a.offset) * 0.02
-                  );
-                }
-                parent.worldToLocal(this._vAlienWorld);
-                a.mesh.position.copy(this._vAlienWorld);
-              }
-
-              a.mesh.getWorldPosition(this._vAlienWorld);
-              if (this._vAlienWorld.distanceTo(this._vDsWorld) < this.deathStarHitRadius) {
+              const horizontalDist = new THREE.Vector2(a.mesh.position.x - cam.position.x, a.mesh.position.z - cam.position.z).length();
+              
+              if (horizontalDist < 1.2) {
                 this.lives--;
-                this.damageFlashTime = 0.5;
-                this.playSynthSound(120, 'square', 0.25, 0.2);
-                this._vHit.lerpVectors(this._vAlienWorld, this._vDsWorld, 0.65);
-                this.worldToLocal(this._vHit);
-                this.createSmallExplosion(this._vHit);
-
+                this.damageFlashTime = 0.5; // Start damage flash
+                this.playSynthSound(120, 'square', 0.25, 0.2); 
+                
                 if (this.lives <= 0) {
                   this.lives = 0;
                   this.endGame('GAME OVER');
                 } else {
                   const angle = Math.random() * Math.PI * 2;
-                  a.mesh.position.set(Math.cos(angle) * 15, 0.5 + Math.random() * 2, Math.sin(angle) * 15);
+                  a.mesh.position.set(Math.cos(angle)*15, 0.5 + Math.random()*2, Math.sin(angle)*15);
                 }
               }
-              a.mesh.lookAt(this._vDsWorld);
+              a.mesh.lookAt(cam.position.x, a.mesh.position.y, cam.position.z);
             });
           }
 
           // Particle update
           for (let i = this.explosions.length - 1; i >= 0; i--) {
             const e = this.explosions[i];
-            const expand = e.small ? 9 : 4;
-            const fade = e.small ? 5.5 : 3;
-            e.mesh.scale.multiplyScalar(1 + dt * expand);
-            e.mesh.material.opacity -= dt * fade;
+            e.mesh.scale.multiplyScalar(1 + dt * 4);
+            e.mesh.material.opacity -= dt * 3;
             if (e.mesh.material.opacity <= 0) {
               this.remove(e.mesh);
               this.explosions.splice(i, 1);
@@ -597,19 +479,6 @@
           mesh.position.copy(pos);
           this.add(mesh);
           this.explosions.push({ mesh });
-        }
-
-        createSmallExplosion(pos) {
-          const geo = new THREE.IcosahedronGeometry(0.08, 0);
-          const mat = new THREE.MeshBasicMaterial({
-            color: 0xff8833,
-            transparent: true,
-            opacity: 1.0,
-          });
-          const mesh = new THREE.Mesh(geo, mat);
-          mesh.position.copy(pos);
-          this.add(mesh);
-          this.explosions.push({ mesh, small: true });
         }
       }
 
