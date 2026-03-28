@@ -39,6 +39,7 @@
 
       const TIE_FIGHTER_GLB_URL = '../models/low_poly_tie_fighter_star_wars.glb';
       const LEGO_XWING_GLB_URL = '../models/lego_x-wing.glb';
+      const DEATH_STAR_GLB_URL = '../models/death_star_2_remake.glb';
 
       const GAME_STATE = {
         START: 'start',
@@ -68,6 +69,9 @@
           this.damageOverlay = null;
           this.gunModelTemplate = null;
           this.alienModelTemplate = null;
+          this.deathStarTemplate = null;
+          this.deathStarGroup = null;
+          this.deathStarHitRadius = 1.8;
 
           this.listener = new THREE.AudioListener();
         }
@@ -99,7 +103,11 @@
           this.createMenu();
           this.createDamageOverlay();
 
-          await Promise.all([this.prepareGunModel(), this.prepareAlienModel()]);
+          await Promise.all([
+            this.prepareGunModel(),
+            this.prepareAlienModel(),
+            this.prepareDeathStarModel(),
+          ]);
           this.createGun();
 
           this.syncUI();
@@ -126,6 +134,26 @@
 
         async prepareAlienModel() {
           this.alienModelTemplate = await this.loadNormalizedGltf(LEGO_XWING_GLB_URL, 0.35);
+        }
+
+        async prepareDeathStarModel() {
+          this.deathStarTemplate = await this.loadNormalizedGltf(DEATH_STAR_GLB_URL, 3.0);
+        }
+
+        spawnDeathStar() {
+          if (this.deathStarGroup) {
+            this.remove(this.deathStarGroup);
+            this.deathStarGroup = null;
+          }
+          const g = new THREE.Group();
+          g.add(this.deathStarTemplate.clone(true));
+          g.position.set(0, 1.4, 0);
+          this.add(g);
+          this.deathStarGroup = g;
+          g.updateMatrixWorld(true);
+          const box = new THREE.Box3().setFromObject(g);
+          const size = box.getSize(new THREE.Vector3());
+          this.deathStarHitRadius = 0.5 * Math.max(size.x, size.y, size.z) + 0.45;
         }
 
         syncUI() {
@@ -265,6 +293,8 @@
           this.aliens = [];
           this.bullets = [];
 
+          this.spawnDeathStar();
+
           for (let i = 0; i < this.invaderCount; i++) {
             this.spawnAlien();
           }
@@ -355,6 +385,10 @@
 
         endGame(title = 'MISSION COMPLETE') {
           this.state = GAME_STATE.END;
+          if (this.deathStarGroup) {
+            this.remove(this.deathStarGroup);
+            this.deathStarGroup = null;
+          }
           this.syncUI();
 
           this.titleText.setText(title);
@@ -399,6 +433,10 @@
               this.endGame('TIME EXPIRED');
             }
 
+            if (this.deathStarGroup) {
+              this.deathStarGroup.rotation.y += 0.2 * dt;
+            }
+
             // Update UI Strings
             if (this.scoreText) this.scoreText.setText(`SCORE: ${this.score}`);
             if (this.timerText) this.timerText.setText(`${Math.ceil(this.timeLeft)}s`);
@@ -433,38 +471,49 @@
               }
             }
 
-            // Invaders movement and collision
+            // Invaders fly toward Death Star
+            const dsPos = this.deathStarGroup
+              ? this.deathStarGroup.position
+              : new THREE.Vector3(0, 1.4, 0);
             this.aliens.forEach(a => {
-              const toPlayer = new THREE.Vector3(cam.position.x, a.mesh.position.y, cam.position.z).sub(a.mesh.position).normalize();
-              a.mesh.position.addScaledVector(toPlayer, a.speed * dt);
-              
-              const sideDir = new THREE.Vector3(1, 0, 0).applyQuaternion(a.mesh.quaternion);
-              a.mesh.position.addScaledVector(sideDir, Math.sin(time * 2 + a.offset) * 0.02);
+              const toTarget = new THREE.Vector3().subVectors(dsPos, a.mesh.position);
+              const len = toTarget.length();
+              if (len > 1e-5) {
+                toTarget.multiplyScalar(1 / len);
+                a.mesh.position.addScaledVector(toTarget, a.speed * dt);
+                const perp = new THREE.Vector3(-toTarget.z, 0, toTarget.x);
+                if (perp.lengthSq() > 1e-8) {
+                  perp.normalize();
+                  a.mesh.position.addScaledVector(perp, Math.sin(time * 2 + a.offset) * 0.02);
+                }
+              }
 
-              const horizontalDist = new THREE.Vector2(a.mesh.position.x - cam.position.x, a.mesh.position.z - cam.position.z).length();
-              
-              if (horizontalDist < 1.2) {
+              if (this.deathStarGroup && a.mesh.position.distanceTo(dsPos) < this.deathStarHitRadius) {
                 this.lives--;
-                this.damageFlashTime = 0.5; // Start damage flash
-                this.playSynthSound(120, 'square', 0.25, 0.2); 
-                
+                this.damageFlashTime = 0.5;
+                this.playSynthSound(120, 'square', 0.25, 0.2);
+                const hit = new THREE.Vector3().lerpVectors(a.mesh.position, dsPos, 0.65);
+                this.createSmallExplosion(hit);
+
                 if (this.lives <= 0) {
                   this.lives = 0;
                   this.endGame('GAME OVER');
                 } else {
                   const angle = Math.random() * Math.PI * 2;
-                  a.mesh.position.set(Math.cos(angle)*15, 0.5 + Math.random()*2, Math.sin(angle)*15);
+                  a.mesh.position.set(Math.cos(angle) * 15, 0.5 + Math.random() * 2, Math.sin(angle) * 15);
                 }
               }
-              a.mesh.lookAt(cam.position.x, a.mesh.position.y, cam.position.z);
+              a.mesh.lookAt(dsPos);
             });
           }
 
           // Particle update
           for (let i = this.explosions.length - 1; i >= 0; i--) {
             const e = this.explosions[i];
-            e.mesh.scale.multiplyScalar(1 + dt * 4);
-            e.mesh.material.opacity -= dt * 3;
+            const expand = e.small ? 9 : 4;
+            const fade = e.small ? 5.5 : 3;
+            e.mesh.scale.multiplyScalar(1 + dt * expand);
+            e.mesh.material.opacity -= dt * fade;
             if (e.mesh.material.opacity <= 0) {
               this.remove(e.mesh);
               this.explosions.splice(i, 1);
@@ -479,6 +528,19 @@
           mesh.position.copy(pos);
           this.add(mesh);
           this.explosions.push({ mesh });
+        }
+
+        createSmallExplosion(pos) {
+          const geo = new THREE.IcosahedronGeometry(0.08, 0);
+          const mat = new THREE.MeshBasicMaterial({
+            color: 0xff8833,
+            transparent: true,
+            opacity: 1.0,
+          });
+          const mesh = new THREE.Mesh(geo, mat);
+          mesh.position.copy(pos);
+          this.add(mesh);
+          this.explosions.push({ mesh, small: true });
         }
       }
 
