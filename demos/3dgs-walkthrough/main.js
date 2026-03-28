@@ -5,21 +5,21 @@ import * as THREE from 'three';
 import * as xb from 'xrblocks';
 
 const PROPRIETARY_ASSETS_BASE_URL =
-  'https://cdn.jsdelivr.net/gh/xrblocks/proprietary-assets@main/';
+  '3dgs/';
 
 const SPLAT_ASSETS = [
   {
-    url: PROPRIETARY_ASSETS_BASE_URL + '3dgs_scenes/nyc.spz',
-    scale: new THREE.Vector3(1.3, 1.3, 1.3),
-    position: new THREE.Vector3(0, -0.15, 0),
+    url: PROPRIETARY_ASSETS_BASE_URL + 'horse-qvb.spz',
+    scale: new THREE.Vector3(1.3, -1.3, 1.3),
+    position: new THREE.Vector3(0, 2.15, 0),
     quaternion: new THREE.Quaternion(1, 0, 0, 0),
   },
-  {
-    url: PROPRIETARY_ASSETS_BASE_URL + '3dgs_scenes/alameda.spz',
-    scale: new THREE.Vector3(1.3, 1.3, 1.3),
-    position: new THREE.Vector3(0, 0, 0),
-    quaternion: new THREE.Quaternion(1, 0, 0, 0),
-  },
+  // {
+  //   url: PROPRIETARY_ASSETS_BASE_URL + '3dgs_scenes/alameda.spz',
+  //   scale: new THREE.Vector3(1.3, 1.3, 1.3),
+  //   position: new THREE.Vector3(0, 0, 0),
+  //   quaternion: new THREE.Quaternion(1, 0, 0, 0),
+  // },
 ];
 
 const FADE_DURATION_S = 1.0; // seconds
