@@ -38,6 +38,7 @@
       const SPLAT_SPZ_URL = '3dgs/shard.splat';
 
       const TIE_FIGHTER_GLB_URL = '../models/low_poly_tie_fighter_star_wars.glb';
+      const LEGO_XWING_GLB_URL = '../models/lego_x-wing.glb';
 
       const GAME_STATE = {
         START: 'start',
@@ -65,6 +66,7 @@
           this.timerText = null;
           this.livesText = null;
           this.damageOverlay = null;
+          this.gunModelTemplate = null;
           this.alienModelTemplate = null;
 
           this.listener = new THREE.AudioListener();
@@ -95,27 +97,35 @@
           this.createRoundStars();
           this.createHUD();
           this.createMenu();
-          this.createGun();
           this.createDamageOverlay();
 
-          await this.prepareAlienModel();
+          await Promise.all([this.prepareGunModel(), this.prepareAlienModel()]);
+          this.createGun();
 
           this.syncUI();
         }
 
-        async prepareAlienModel() {
+        async loadNormalizedGltf(url, targetMaxDim) {
           const loader = new GLTFLoader();
-          const gltf = await loader.loadAsync(TIE_FIGHTER_GLB_URL);
+          const gltf = await loader.loadAsync(url);
           const model = gltf.scene;
           model.updateMatrixWorld(true);
           const box = new THREE.Box3().setFromObject(model);
           const size = box.getSize(new THREE.Vector3());
           const maxDim = Math.max(size.x, size.y, size.z, 1e-6);
-          model.scale.setScalar(0.35 / maxDim);
+          model.scale.setScalar(targetMaxDim / maxDim);
           model.updateMatrixWorld(true);
           const box2 = new THREE.Box3().setFromObject(model);
           model.position.sub(box2.getCenter(new THREE.Vector3()));
-          this.alienModelTemplate = model;
+          return model;
+        }
+
+        async prepareGunModel() {
+          this.gunModelTemplate = await this.loadNormalizedGltf(TIE_FIGHTER_GLB_URL, 0.22);
+        }
+
+        async prepareAlienModel() {
+          this.alienModelTemplate = await this.loadNormalizedGltf(LEGO_XWING_GLB_URL, 0.35);
         }
 
         syncUI() {
@@ -234,17 +244,9 @@
 
         createGun() {
           const gunGroup = new THREE.Group();
-          const body = new THREE.Mesh(
-            new THREE.BoxGeometry(0.04, 0.04, 0.25),
-            new THREE.MeshPhongMaterial({ color: 0x333333 })
-          );
-          const detail = new THREE.Mesh(
-            new THREE.BoxGeometry(0.01, 0.01, 0.1),
-            new THREE.MeshBasicMaterial({ color: 0x00ffff })
-          );
-          detail.position.y = 0.02;
-          gunGroup.add(body, detail);
-          
+          const gunMesh = this.gunModelTemplate.clone(true);
+          gunMesh.rotation.x = -Math.PI / 2;
+          gunGroup.add(gunMesh);
           this.gun = gunGroup;
           this.add(this.gun);
         }
@@ -270,8 +272,8 @@
 
         spawnAlien() {
           const group = new THREE.Group();
-          const tie = this.alienModelTemplate.clone(true);
-          group.add(tie);
+          const invader = this.alienModelTemplate.clone(true);
+          group.add(invader);
 
           const distance = 12 + Math.random() * 5;
           const angle = Math.random() * Math.PI * 2;
