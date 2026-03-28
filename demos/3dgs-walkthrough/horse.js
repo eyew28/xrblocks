@@ -9,9 +9,9 @@ const PROPRIETARY_ASSETS_BASE_URL =
 
 const SPLAT_ASSETS = [
   {
-    url: PROPRIETARY_ASSETS_BASE_URL + 'horse-qvb.spz',
-    scale: new THREE.Vector3(4, -4, 4),
-    position: new THREE.Vector3(0, 2.15, -5),
+    url: PROPRIETARY_ASSETS_BASE_URL + 'horse-qvb.splat',
+    scale: new THREE.Vector3(4, 4, 4),
+    position: new THREE.Vector3(-3, 2.15, -5),
     quaternion: new THREE.Quaternion(1, 0, 0, 0),
   },
   // {
