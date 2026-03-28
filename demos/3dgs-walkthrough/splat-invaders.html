@@ -168,7 +168,7 @@
             }
           });
           if (!hasMesh) {
-            this.deathStarTemplate = await this.loadNormalizedGltf(DEATH_STAR_GLB_URL, 0.3);
+            this.deathStarTemplate = await this.loadNormalizedGltf(DEATH_STAR_GLB_URL, 0.03);
             return;
           }
           const center = box.getCenter(new THREE.Vector3());
@@ -176,7 +176,7 @@
           model.position.sub(center);
           model.updateMatrixWorld(true);
           const maxDim = Math.max(size.x, size.y, size.z, 1e-6);
-          model.scale.setScalar(0.3 / maxDim);
+          model.scale.setScalar(0.03 / maxDim);
           this.deathStarTemplate = model;
         }
 
