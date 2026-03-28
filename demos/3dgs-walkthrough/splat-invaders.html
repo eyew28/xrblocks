@@ -34,7 +34,7 @@
       import * as xb from 'xrblocks';
 
       /** Same SPZ asset and transform as `main.js` SPLAT_ASSETS[0]. */
-      const SPLAT_SPZ_URL = '3dgs/horse-qvb-trimmed.splat';
+      const SPLAT_SPZ_URL = '3dgs/lego-xwing-pilot.splat';
 
       const GAME_STATE = {
         START: 'start',
@@ -77,6 +77,7 @@
           const splatMesh = new SplatMesh({url: SPLAT_SPZ_URL});
           await splatMesh.initialized;
           splatMesh.position.set(0, 0.15, -2);
+          splatMesh.rotation.set(0, 0, 180);
           splatMesh.quaternion.set(1, 0, 0, 0);
           splatMesh.scale.set(.5, .5, .5);
 
