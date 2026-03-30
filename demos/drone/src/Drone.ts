@@ -5,7 +5,7 @@ import * as xb from 'xrblocks';
 
 import {DroneKeyboardControls} from './DroneKeyboardControls.js';
 
-const DRONE_FBX_FILE = '../models/ace-pilot.fbx';
+const DRONE_FBX_FILE = '../models/drone.fbx';
 
 export class Drone extends xb.Script {
   rigidBody?: RAPIER.RigidBody;
