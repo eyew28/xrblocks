@@ -143,7 +143,6 @@ dist
 *.webm
 
 # Build
-build
 .DS_Store
 
 # Keys
