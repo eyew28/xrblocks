@@ -11,7 +11,7 @@
     "build:watch": "rollup -c -w",
     "serve": "concurrently \"rollup -c -w\" \"http-server --cors -a 127.0.0.1 -p 8080\"",
     "build": "echo \"Building xrblocks.js...\" && rollup -c --failAfterWarnings",
-    "prepare": "npm run build",
+    "prepare": "node scripts/prepare-build.mjs",
     "lint": "eslint src",
     "format": "npm run format:fix",
     "format:check": "prettier \"**/*.{cjs,html,js,json,md,mdx,ts,css}\" --check",
