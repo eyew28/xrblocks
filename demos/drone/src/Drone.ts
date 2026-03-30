@@ -38,7 +38,7 @@ export class Drone extends xb.Script {
   loadDroneModel() {
     return new Promise<void>((resolve) =>
       new FBXLoader().load(DRONE_FBX_FILE, (object) => {
-        object.scale.set(0.01, 0.01, 0.01);
+        object.scale.set(0.0005, 0.0005, 0.0005);
         console.log('loaded drone model');
         this.add(object);
         resolve();
