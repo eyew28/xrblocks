@@ -38,8 +38,15 @@ export class ObjectsOptions {
         },
       },
     },
-    /** Placeholder for a future MediaPipe backend configuration. */
-    mediapipe: {},
+    /** Configuration for MediaPipe backend. */
+    mediapipe: {
+      wasmFilesUrl:
+        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm',
+      // Check https://ai.google.dev/edge/mediapipe/solutions/vision/object_detector#models for other models.
+      modelAssetPath:
+        'https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite2/int8/latest/efficientdet_lite2.tflite',
+      scoreThreshold: 0.5,
+    },
   };
 
   constructor(options?: DeepPartial<ObjectsOptions>) {

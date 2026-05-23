@@ -88,7 +88,11 @@ export class AudioListener extends Script {
 
   async setupAudioCapture() {
     this.audioStream = await navigator.mediaDevices.getUserMedia({
-      audio: true,
+      audio: {
+        echoCancellation: this.options.echoCancellation,
+        noiseSuppression: this.options.noiseSuppression,
+        autoGainControl: this.options.autoGainControl,
+      },
       video: false,
     });
 

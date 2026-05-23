@@ -7,6 +7,7 @@ import {
 import {DepthOptions, xrDepthMeshOptions} from '../depth/DepthOptions.js';
 import {HandsOptions} from '../input/HandsOptions.js';
 import {GestureRecognitionOptions} from '../input/gestures/GestureRecognitionOptions.js';
+import {StrokeRecognitionOptions} from '../input/strokes/StrokeRecognitionOptions';
 import {LightingOptions} from '../lighting/LightingOptions.js';
 import {PhysicsOptions} from '../physics/PhysicsOptions';
 import {SimulatorOptions} from '../simulator/SimulatorOptions';
@@ -40,6 +41,12 @@ export class InputOptions {
  */
 export class ReticleOptions {
   enabled = true;
+  /**
+   * When set to a positive value, the reticle is placed at this distance
+   * (in meters) along the controller ray when no intersection is found,
+   * instead of being hidden. Set to 0 to hide the reticle on miss.
+   */
+  defaultDistance = 0;
 }
 
 /**
@@ -100,6 +107,7 @@ export class Options {
   deviceCamera = new DeviceCameraOptions();
   hands = new HandsOptions();
   gestures = new GestureRecognitionOptions();
+  strokes = new StrokeRecognitionOptions();
   reticles = new ReticleOptions();
   sound = new SoundOptions();
   ai = new AIOptions();
@@ -118,6 +126,13 @@ export class Options {
   usePostprocessing = false;
 
   enableSimulator = true;
+
+  /**
+   * Whether to catch all exceptions thrown by developer scripts in the main update loop
+   * and physics step, and log them using console.error instead of crashing the application.
+   * When enabled, exceptions in one script will not prevent other scripts or subsystems from updating.
+   */
+  catchScriptExceptions = true;
 
   /**
    * Configuration for the XR session button.
@@ -194,8 +209,14 @@ export class Options {
    */
   enableVR() {
     this.xrSessionMode = 'immersive-vr';
-    this.simulator.scenePath = null;
-    this.simulator.scenePlanesPath = null;
+    if (this.simulator.environments[this.simulator.activeEnvironmentIndex]) {
+      this.simulator.environments[
+        this.simulator.activeEnvironmentIndex
+      ].scenePath = null;
+      this.simulator.environments[
+        this.simulator.activeEnvironmentIndex
+      ].scenePlanesPath = null;
+    }
     return this;
   }
 
@@ -278,6 +299,16 @@ export class Options {
   enableGestures() {
     this.enableHands();
     this.gestures.enable();
+    return this;
+  }
+
+  /**
+   * Enables the stroke recognition block and ensures gestures are available.
+   * @returns The instance for chaining.
+   */
+  enableStrokes() {
+    this.enableGestures();
+    this.strokes.enable();
     return this;
   }
 

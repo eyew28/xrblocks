@@ -66,7 +66,7 @@ export class Simulator extends Script {
   backgroundVideoQuad?: FullScreenQuad;
   videoElement?: HTMLVideoElement;
 
-  camera?: SimulatorCamera;
+  simulatorCamera?: SimulatorCamera;
   options!: SimulatorOptions;
   renderer!: THREE.WebGLRenderer;
   mainCamera!: THREE.Camera;
@@ -113,17 +113,28 @@ export class Simulator extends Script {
     const deviceCamera = registry.get(XRDeviceCamera);
     this.options = simulatorOptions;
     camera.position.copy(this.options.initialCameraPosition);
-    this.userInterface.init(simulatorOptions, this.controls, this.hands);
+    this.userInterface.init(
+      simulatorOptions,
+      this.controls,
+      this.hands,
+      input,
+      this.simulatorScene
+    );
     renderer.autoClearColor = false;
     await this.simulatorScene.init(simulatorOptions);
     await this.simulatorWorld.init(options, world);
     this.hands.init({input});
     this.controls.init({camera, input, timer, renderer, simulatorOptions});
-    if (deviceCamera && !this.camera) {
-      this.camera = new SimulatorCamera(renderer);
-      this.camera.init();
-      deviceCamera.registerSimulatorCamera(this.camera);
+    if (
+      deviceCamera &&
+      !this.simulatorCamera &&
+      this.options.deviceCamera.enabled
+    ) {
+      this.simulatorCamera = new SimulatorCamera(renderer);
+      this.simulatorCamera.init();
+      deviceCamera.registerSimulatorCamera(this.simulatorCamera);
     }
+    deviceCamera?.init();
 
     if (options.depth.enabled) {
       this.renderDepthPass = true;
@@ -135,20 +146,22 @@ export class Simulator extends Script {
       this.setupStereoCameras(camera);
     }
 
-    if (this.options.videoPath) {
+    const activeEnv =
+      this.options.environments[this.options.activeEnvironmentIndex];
+    if (activeEnv?.videoPath) {
       this.videoElement = document.createElement('video');
-      this.videoElement.src = this.options.videoPath;
+      this.videoElement.src = activeEnv.videoPath;
       this.videoElement.loop = true;
       this.videoElement.muted = true;
       this.videoElement.play().catch((e) => {
         console.error(
-          `Simulator: Failed to play video at ${this.options.videoPath}`,
+          `Simulator: Failed to play video at ${activeEnv.videoPath}`,
           e
         );
       });
       this.videoElement.addEventListener('error', () => {
         console.error(
-          `Simulator: Error loading video at ${this.options.videoPath}`,
+          `Simulator: Error loading video at ${activeEnv.videoPath}`,
           this.videoElement?.error
         );
       });
@@ -218,18 +231,14 @@ export class Simulator extends Script {
   }
 
   onBeforeSimulatorSceneRender() {
-    if (this.camera) {
-      this.camera.onBeforeSimulatorSceneRender(
-        this.mainCamera,
-        this.renderSimulatorSceneToCanvasBound
-      );
-    }
+    this.simulatorCamera?.onBeforeSimulatorSceneRender(
+      this.mainCamera,
+      this.renderSimulatorSceneToCanvasBound
+    );
   }
 
   onSimulatorSceneRendered() {
-    if (this.camera) {
-      this.camera.onSimulatorSceneRendered();
-    }
+    this.simulatorCamera?.onSimulatorSceneRendered();
   }
 
   getRenderCamera() {
@@ -263,7 +272,7 @@ export class Simulator extends Script {
     this.sparkRenderer =
       this.sparkRenderer || this.registry!.get(SparkRendererHolder)?.renderer;
     if (this.sparkRenderer) {
-      this.sparkRenderer.defaultView.encodeLinear = true;
+      this.sparkRenderer.encodeLinear = true;
     }
     this.renderer.setRenderTarget(this.virtualSceneRenderTarget!);
     this.renderer.clear();
@@ -288,7 +297,7 @@ export class Simulator extends Script {
 
   private renderSimulatorSceneToCanvas(camera: THREE.Camera) {
     if (this.sparkRenderer) {
-      this.sparkRenderer.defaultView.encodeLinear = false;
+      this.sparkRenderer.encodeLinear = false;
     }
     this.renderer.setRenderTarget(null);
     if (this.backgroundVideoQuad) {

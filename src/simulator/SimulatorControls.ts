@@ -14,21 +14,18 @@ import {SimulatorControllerState} from './SimulatorControllerState';
 import {SimulatorHands} from './SimulatorHands';
 import {SimulatorInterface} from './SimulatorInterface';
 import {SimulatorMode, SimulatorOptions} from './SimulatorOptions';
+import {ISimulatorSettingsPanelElement} from './interfaces/ISimulatorSettingsPanelElement';
 
 function preventDefault(event: Event) {
   event.preventDefault();
 }
 
-export type SimulatorModeIndicatorElement = HTMLElement & {
-  simulatorMode: SimulatorMode;
-};
-
 export class SimulatorControls {
   pointerDown = false;
   downKeys = new Set<Keycodes>();
 
-  // Custom HTML element indicating the simulator control mode.
-  modeIndicatorElement?: SimulatorModeIndicatorElement;
+  // Custom HTML element for simulator settings.
+  simulatorSettingsPanelElement?: ISimulatorSettingsPanelElement;
 
   simulatorMode = SimulatorMode.USER;
 
@@ -43,13 +40,6 @@ export class SimulatorControls {
   set enabled(value) {
     this.setEnabled(value);
   }
-
-  private _onPointerDown = this.onPointerDown.bind(this);
-  private _onPointerUp = this.onPointerUp.bind(this);
-  private _onKeyDown = this.onKeyDown.bind(this);
-  private _onKeyUp = this.onKeyUp.bind(this);
-  private _onPointerMove = this.onPointerMove.bind(this);
-  private _onBlur = this.onBlur.bind(this);
 
   /**
    * Create the simulator controls.
@@ -66,27 +56,36 @@ export class SimulatorControls {
     const toggleUserInterface = () => {
       this.userInterface.toggleInterfaceVisible();
     };
+    const cycleSimulatorMode = () => {
+      if (!this.simulatorOptions) return;
+      this.setSimulatorMode(
+        this.simulatorOptions.modeToggle.toggleOrder[this.simulatorMode]
+      );
+    };
     this.simulatorModes = {
       [SimulatorMode.USER]: new SimulatorUserMode(
         this.simulatorControllerState,
         this.downKeys,
         hands,
         setStereoRenderMode,
-        toggleUserInterface
+        toggleUserInterface,
+        cycleSimulatorMode
       ),
       [SimulatorMode.POSE]: new SimulatorPoseMode(
         this.simulatorControllerState,
         this.downKeys,
         hands,
         setStereoRenderMode,
-        toggleUserInterface
+        toggleUserInterface,
+        cycleSimulatorMode
       ),
       [SimulatorMode.CONTROLLER]: new SimulatorControllerMode(
         this.simulatorControllerState,
         this.downKeys,
         hands,
         setStereoRenderMode,
-        toggleUserInterface
+        toggleUserInterface,
+        cycleSimulatorMode
       ),
     };
 
@@ -122,38 +121,38 @@ export class SimulatorControls {
 
   connect() {
     const domElement = this.renderer.domElement;
-    document.addEventListener('keyup', this._onKeyUp);
-    document.addEventListener('keydown', this._onKeyDown);
-    domElement.addEventListener('pointermove', this._onPointerMove);
-    domElement.addEventListener('pointerdown', this._onPointerDown);
-    domElement.addEventListener('pointerup', this._onPointerUp);
+    document.addEventListener('keyup', this.onKeyUp);
+    document.addEventListener('keydown', this.onKeyDown);
+    domElement.addEventListener('pointermove', this.onPointerMove);
+    domElement.addEventListener('pointerdown', this.onPointerDown);
+    domElement.addEventListener('pointerup', this.onPointerUp);
     domElement.addEventListener('contextmenu', preventDefault);
-    window.addEventListener('blur', this._onBlur);
-    document.addEventListener('visibilitychange', this._onBlur);
+    window.addEventListener('blur', this.onBlur);
+    document.addEventListener('visibilitychange', this.onBlur);
   }
 
   update() {
     this.simulatorModeControls.update();
   }
 
-  onPointerMove(event: MouseEvent) {
+  onPointerMove = (event: MouseEvent) => {
     if (!this.enabled) return;
     this.simulatorModeControls.onPointerMove(event);
-  }
+  };
 
-  onPointerDown(event: MouseEvent) {
+  onPointerDown = (event: MouseEvent) => {
     if (!this.enabled) return;
     this.simulatorModeControls.onPointerDown(event);
     this.pointerDown = true;
-  }
+  };
 
-  onPointerUp(event: MouseEvent) {
+  onPointerUp = (event: MouseEvent) => {
     if (!this.enabled) return;
     this.simulatorModeControls.onPointerUp(event);
     this.pointerDown = false;
-  }
+  };
 
-  onKeyDown(event: KeyboardEvent) {
+  onKeyDown = (event: KeyboardEvent) => {
     if (!this.enabled) return;
     // On macOS, keyup events are not fired for keys held when Command (Meta)
     // is pressed. Clear all keys to prevent stuck movement.
@@ -167,7 +166,7 @@ export class SimulatorControls {
     }
     this.downKeys.add(event.code as Keycodes);
     if (
-      this.simulatorOptions &&
+      this.simulatorOptions?.modeToggle.enabled &&
       event.code === this.simulatorOptions.modeToggle.toggleKey
     ) {
       this.setSimulatorMode(
@@ -175,35 +174,35 @@ export class SimulatorControls {
       );
     }
     this.simulatorModeControls.onKeyDown(event);
-  }
+  };
 
-  onKeyUp(event: KeyboardEvent) {
+  onKeyUp = (event: KeyboardEvent) => {
     if (!this.enabled) return;
     this.downKeys.delete(event.code as Keycodes);
-  }
+  };
 
-  onBlur() {
+  onBlur = () => {
     this.downKeys.clear();
-  }
+  };
 
   setSimulatorMode(mode: SimulatorMode) {
     this.simulatorMode = mode;
     this.simulatorModeControls.onModeDeactivated();
     this.simulatorModeControls = this.simulatorModes[this.simulatorMode];
     this.simulatorModeControls.onModeActivated();
-    if (this.modeIndicatorElement) {
-      this.modeIndicatorElement.simulatorMode = mode;
+    if (this.simulatorSettingsPanelElement) {
+      this.simulatorSettingsPanelElement.simulatorMode = mode;
     }
   }
 
-  setModeIndicatorElement(element: SimulatorModeIndicatorElement) {
+  setSimulatorSettingsPanelElement(element: ISimulatorSettingsPanelElement) {
     element.simulatorMode = this.simulatorMode;
     element.addEventListener('setSimulatorMode', (event) => {
       if (event instanceof SetSimulatorModeEvent) {
         this.setSimulatorMode(event.simulatorMode);
       }
     });
-    this.modeIndicatorElement = element;
+    this.simulatorSettingsPanelElement = element;
   }
 
   setEnabled(value: boolean) {

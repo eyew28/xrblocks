@@ -24,27 +24,41 @@ export interface SimulatorCustomInstruction {
   description: string | TemplateResult;
 }
 
+export interface SimulatorEnvironment {
+  name: string;
+  scenePath?: string | null;
+  scenePlanesPath?: string | null;
+  videoPath?: string;
+}
+
 export class SimulatorOptions {
   initialCameraPosition = {x: 0, y: 1.5, z: 0};
-  scenePath: string | null =
-    XR_BLOCKS_ASSETS_PATH + 'simulator/scenes/XREmulatorsceneV5_livingRoom.glb';
-  scenePlanesPath: string | null =
-    XR_BLOCKS_ASSETS_PATH +
-    'simulator/scenes/XREmulatorsceneV5_livingRoom_planes.json';
-  videoPath?: string = undefined;
+  environments: SimulatorEnvironment[] = [
+    {
+      name: 'Living Room',
+      scenePath:
+        XR_BLOCKS_ASSETS_PATH +
+        'simulator/scenes/XREmulatorsceneV5_livingRoom.glb',
+      scenePlanesPath:
+        XR_BLOCKS_ASSETS_PATH +
+        'simulator/scenes/XREmulatorsceneV5_livingRoom_planes.json',
+    },
+  ];
+  activeEnvironmentIndex = 0;
   initialScenePosition = {x: -1.6, y: 0.3, z: 0};
   defaultMode = SimulatorMode.USER;
   defaultHand = Handedness.LEFT;
   modeToggle = {
+    enabled: false,
     toggleKey: Keycodes.LEFT_SHIFT_CODE as Keycodes | null,
     toggleOrder: DEFAULT_MODE_TOGGLE_ORDER,
   };
-  modeIndicator = {
+  simulatorSettingsPanel = {
     enabled: true,
-    element: 'xrblocks-simulator-mode-indicator',
+    element: 'xrblocks-simulator-settings',
   };
   instructions = {
-    enabled: true,
+    enabled: false,
     element: 'xrblocks-simulator-instructions',
     customInstructions: [] as SimulatorCustomInstruction[],
   };
@@ -58,6 +72,11 @@ export class SimulatorOptions {
   };
   stereo = {
     enabled: false,
+  };
+  deviceCamera = {
+    // Whether to enable the simulator camera feed.
+    // If disabled, the actual device camera will be used instead.
+    enabled: true,
   };
   // Whether to render the main scene to a render texture before rendering the simulator scene
   // or directly to the canvas after rendering the simulator scene.

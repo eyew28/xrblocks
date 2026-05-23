@@ -78,8 +78,8 @@ code below:
     <script type="importmap">
       {
         "imports": {
-          "three": "https://cdn.jsdelivr.net/npm/three@0.182.0/build/three.module.js",
-          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.182.0/examples/jsm/",
+          "three": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/",
           "xrblocks": "https://cdn.jsdelivr.net/gh/google/xrblocks@build/xrblocks.js",
           "xrblocks/addons/": "https://cdn.jsdelivr.net/gh/google/xrblocks@build/addons/"
         }
@@ -137,7 +137,7 @@ code below:
 
 ### Gem
 
-For rapdi prototyping, please refer to this
+For rapid prototyping, please refer to this
 [blog](https://research.google/blog/vibe-coding-xr-accelerating-ai-xr-prototyping-with-xr-blocks-and-gemini)
 and try out [XR Blocks Gem](https://xrblocks.github.io/gem) on Android XR or
 desktop using Chrome.
@@ -245,7 +245,7 @@ JavaScript/TypeScript libraries and REST calls) can be extracted.
 
 ### Uninstallation
 
-To remove XR Blocks from your code, simple remove the lines from your `<script
+To remove XR Blocks from your code, simply remove the lines from your `<script
 type="importmap">` tag in HTML, or `import * from xrblocks` in JavaScript, or
 use `npm uninstall xrblocks` from your project directory.
 

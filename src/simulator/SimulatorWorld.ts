@@ -12,8 +12,10 @@ export class SimulatorWorld {
   async init(options: Options, world: World) {
     this.options = options;
     this.world = world;
-    if (options.world.planes.enabled && options.simulator.scenePlanesPath) {
-      await this.loadPlanes(options.simulator.scenePlanesPath);
+    const activeEnv =
+      options.simulator.environments[options.simulator.activeEnvironmentIndex];
+    if (options.world.planes.enabled && activeEnv?.scenePlanesPath) {
+      await this.loadPlanes(activeEnv.scenePlanesPath);
     }
   }
 

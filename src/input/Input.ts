@@ -14,6 +14,7 @@ import type {
   ControllerEvent,
   ControllerEventMap,
 } from './Controller';
+import {GamepadController} from './GamepadController';
 import {GazeController} from './GazeController';
 import {MouseController} from './MouseController';
 import {XRSystems} from '../core/components/XRSystems';
@@ -50,6 +51,7 @@ export class Input {
   pivotsEnabled = false;
   gazeController = new GazeController();
   mouseController = new MouseController();
+  gamepadController = new GamepadController();
   controllersEnabled = true;
   listeners = new Map();
   intersectionsForController = new Map<Controller, THREE.Intersection[]>();
@@ -93,6 +95,8 @@ export class Input {
     controllers.push(this.gazeController);
     controllers.push(this.mouseController);
     this.activeControllers.add(this.mouseController);
+    controllers.push(this.gamepadController);
+    this.activeControllers.add(this.gamepadController);
 
     for (const controller of controllers) {
       this.intersectionsForController.set(controller, []);
@@ -482,7 +486,16 @@ export class Input {
         return true;
       });
     if (!intersection) {
-      reticle.visible = false;
+      const fallback = this.options.reticles.defaultDistance;
+      if (fallback > 0) {
+        reticle.visible = true;
+        reticle.position
+          .copy(this.raycaster.ray.origin)
+          .addScaledVector(this.raycaster.ray.direction, fallback);
+        reticle.quaternion.identity();
+      } else {
+        reticle.visible = false;
+      }
       return;
     }
     reticle.visible = true;

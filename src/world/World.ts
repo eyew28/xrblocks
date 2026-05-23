@@ -7,6 +7,7 @@ import {ObjectDetector} from './objects/ObjectDetector';
 import {PlaneDetector} from './planes/PlaneDetector';
 import {WorldOptions} from './WorldOptions';
 import {MeshDetector} from './mesh/MeshDetector';
+import {SoundDetector} from './sounds/SoundDetector';
 // Import other modules as they are implemented in future.
 // import { SceneMesh } from '/depth/SceneMesh.js';
 // import { LightEstimation } from '/lighting/LightEstimation.js';
@@ -58,6 +59,11 @@ export class World extends Script {
   meshes?: MeshDetector;
 
   /**
+   * The sound detection module instance. Null if not enabled.
+   */
+  sounds?: SoundDetector;
+
+  /**
    * A Three.js Raycaster for performing intersection tests.
    */
   private raycaster = new THREE.Raycaster();
@@ -101,6 +107,11 @@ export class World extends Script {
     if (this.options.meshes.enabled) {
       this.meshes = new MeshDetector();
       this.add(this.meshes);
+    }
+
+    if (this.options.sounds.enabled) {
+      this.sounds = new SoundDetector();
+      this.add(this.sounds);
     }
 
     // TODO: Initialize other modules as they are available & implemented.

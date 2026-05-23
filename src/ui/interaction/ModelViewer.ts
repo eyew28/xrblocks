@@ -586,7 +586,7 @@ export class ModelViewer extends Script implements Draggable {
 
   async createSparkRendererIfNeeded() {
     // We insert our own SparkRenderer configured to show Gaussians up to
-    // Math.sqrt(5) standard deviations from the center, recommended for XR.
+    // Math.sqrt(4) standard deviations from the center, recommended for XR.
     const {SparkRenderer} = await import('@sparkjsdev/spark');
     let sparkRendererExists = false;
     this.scene!.traverse((child) => {
@@ -595,7 +595,7 @@ export class ModelViewer extends Script implements Draggable {
     if (!sparkRendererExists) {
       const sparkRenderer = new SparkRenderer({
         renderer: this.renderer!,
-        maxStdDev: Math.sqrt(5),
+        maxStdDev: Math.sqrt(4),
       });
       this.registry!.register(new SparkRendererHolder(sparkRenderer));
       this.scene!.add(sparkRenderer);

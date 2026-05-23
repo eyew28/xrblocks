@@ -24,6 +24,15 @@ export const DEVICE_CAMERA_PARAMETERS: {[key: string]: DeviceCameraParameters} =
     },
   };
 
+type BoundingBoxCanvasResult = {
+  canvas: HTMLCanvasElement;
+  ctx: CanvasRenderingContext2D;
+  sourceX: number;
+  sourceY: number;
+  sourceWidth: number;
+  sourceHeight: number;
+};
+
 export function getDeviceCameraClipFromView(
   renderCamera: THREE.PerspectiveCamera,
   deviceCamera: XRDeviceCamera,
@@ -137,7 +146,7 @@ export function getCameraParametersSnapshot(
  * Raycasts to the depth mesh to find the world position and normal at a given UV coordinate.
  * @param rgbUv - The UV coordinate to raycast from.
  * @param depthMeshSnapshot - The depth mesh to raycast against.
- * @param depthTransformParameters - The depth transform parameters.
+ * @param cameraParametersSnapshot - Parameters of the device camera relative to the render camera's world.
  * @returns The world position, normal, and depth at the given UV coordinate.
  */
 export function transformRgbUvToWorld(
@@ -181,36 +190,14 @@ export function transformRgbUvToWorld(
 }
 
 /**
- * Asynchronously crops a base64 encoded image using a THREE.Box2 bounding box.
- * This function creates an in-memory image, draws a specified portion of it to
- * a canvas, and then returns the canvas content as a new base64 string.
- * @param base64Image - The base64 string of the source image. Can be a raw
- *     string or a full data URI.
- * @param boundingBox - The bounding box with relative coordinates (0-1) for
- *     cropping.
- * @returns A promise that resolves with the base64 string of the cropped image.
+ * Helper function to prepare a canvas for the bounding box for rendering purposes.
+ * Calculates the clamped bounding box and returns the canvas, context, and dimensions.
  */
-export async function cropImage(base64Image: string, boundingBox: THREE.Box2) {
-  if (!base64Image) {
-    throw new Error('No image data provided for cropping.');
-  }
-
-  const img = new Image();
-  await new Promise((resolve, reject) => {
-    img.onload = resolve;
-    img.onerror = (err) => {
-      console.error('Error loading image for cropping:', err);
-      reject(new Error('Failed to load image for cropping.'));
-    };
-    img.src = base64Image.startsWith('data:image')
-      ? base64Image
-      : `data:image/png;base64,${base64Image}`;
-  });
-
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d')!;
-
-  // Create a unit box and find the intersection to clamp coordinates.
+function createBoundingBoxCanvasResult(
+  width: number,
+  height: number,
+  boundingBox: THREE.Box2
+): BoundingBoxCanvasResult | null {
   const unitBox = new THREE.Box2(
     new THREE.Vector2(0, 0),
     new THREE.Vector2(1, 1)
@@ -220,33 +207,102 @@ export async function cropImage(base64Image: string, boundingBox: THREE.Box2) {
   const cropSize = new THREE.Vector2();
   clampedBox.getSize(cropSize);
 
-  // If the resulting crop area has no size, return an empty image.
   if (cropSize.x === 0 || cropSize.y === 0) {
+    return null;
+  }
+
+  const sourceX = Math.floor(width * clampedBox.min.x);
+  const sourceY = Math.floor(height * clampedBox.min.y);
+  const sourceWidth = Math.ceil(width * cropSize.x);
+  const sourceHeight = Math.ceil(height * cropSize.y);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = sourceWidth;
+  canvas.height = sourceHeight;
+  const ctx = canvas.getContext('2d')!;
+
+  return {canvas, ctx, sourceX, sourceY, sourceWidth, sourceHeight};
+}
+
+/**
+ * Asynchronously crops an image (provided as a base64 string or ImageData) using a THREE.Box2 bounding box.
+ * This function draws a specified portion of the image to a canvas and returns the canvas content as a new base64 string.
+ * @param imageSource - The source image as a base64 string or ImageData object.
+ * @param boundingBox - The bounding box with relative coordinates (0-1) for cropping.
+ * @returns A promise that resolves with the base64 string of the cropped image.
+ */
+export async function cropImage(
+  imageSource: string | ImageData,
+  boundingBox: THREE.Box2
+): Promise<string> {
+  if (!imageSource) {
+    throw new Error('No image data provided for cropping.');
+  }
+
+  let width: number;
+  let height: number;
+  let drawOp: (
+    ctx: CanvasRenderingContext2D,
+    canvasResult: BoundingBoxCanvasResult
+  ) => void;
+
+  if (typeof imageSource === 'string') {
+    const img = new Image();
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = (err) => {
+        console.error('Error loading image for cropping:', err);
+        reject(new Error('Failed to load image for cropping.'));
+      };
+      img.src = imageSource.startsWith('data:image')
+        ? imageSource
+        : `data:image/png;base64,${imageSource}`;
+    });
+    width = img.width;
+    height = img.height;
+    drawOp = (ctx, canvasResult) => {
+      ctx.drawImage(
+        img,
+        canvasResult.sourceX,
+        canvasResult.sourceY,
+        canvasResult.sourceWidth,
+        canvasResult.sourceHeight,
+        0,
+        0,
+        canvasResult.sourceWidth,
+        canvasResult.sourceHeight
+      );
+    };
+  } else if (imageSource instanceof ImageData) {
+    width = imageSource.width;
+    height = imageSource.height;
+    drawOp = (ctx, canvasResult) => {
+      ctx.putImageData(
+        imageSource,
+        -canvasResult.sourceX,
+        -canvasResult.sourceY,
+        canvasResult.sourceX,
+        canvasResult.sourceY,
+        canvasResult.sourceWidth,
+        canvasResult.sourceHeight
+      );
+    };
+  } else {
+    console.warn('Unsupported image source type for cropping.');
     return 'data:image/png;base64,';
   }
 
-  // Calculate absolute pixel values from relative coordinates.
-  const sourceX = img.width * clampedBox.min.x;
-  const sourceY = img.height * clampedBox.min.y;
-  const sourceWidth = img.width * cropSize.x;
-  const sourceHeight = img.height * cropSize.y;
-
-  // Set canvas size to the cropped image size.
-  canvas.width = sourceWidth;
-  canvas.height = sourceHeight;
-
-  // Draw the cropped portion of the source image onto the canvas.
-  ctx.drawImage(
-    img,
-    sourceX,
-    sourceY,
-    sourceWidth,
-    sourceHeight, // Source rectangle
-    0,
-    0,
-    sourceWidth,
-    sourceHeight // Destination rectangle
+  const canvasResult = createBoundingBoxCanvasResult(
+    width,
+    height,
+    boundingBox
   );
+  if (!canvasResult) {
+    console.warn('Unable to create CanvasResult for cropping.');
+    return 'data:image/png;base64,';
+  }
 
-  return canvas.toDataURL('image/png');
+  drawOp(canvasResult.ctx, canvasResult);
+
+  return canvasResult.canvas.toDataURL('image/png');
 }

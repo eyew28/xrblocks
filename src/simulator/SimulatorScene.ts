@@ -13,18 +13,31 @@ export class SimulatorScene extends THREE.Scene {
 
   async init(simulatorOptions: SimulatorOptions) {
     this.addLights();
-    if (simulatorOptions.videoPath) {
+    const activeEnv =
+      simulatorOptions.environments[simulatorOptions.activeEnvironmentIndex];
+    if (!activeEnv) return;
+    if (activeEnv.videoPath) {
       return;
     }
-    if (simulatorOptions.scenePath) {
+    if (activeEnv.scenePath) {
       await this.loadGLTF(
-        simulatorOptions.scenePath,
+        activeEnv.scenePath,
         new THREE.Vector3(
           simulatorOptions.initialScenePosition.x,
           simulatorOptions.initialScenePosition.y,
           simulatorOptions.initialScenePosition.z
         )
       );
+    }
+  }
+
+  async setEnvironment(path: string | null, initialPosition: THREE.Vector3) {
+    if (this.gltf) {
+      this.remove(this.gltf.scene);
+      this.gltf = undefined;
+    }
+    if (path) {
+      await this.loadGLTF(path, initialPosition);
     }
   }
 

@@ -1,9 +1,9 @@
 import {GoogleGenAI, Modality} from '@google/genai';
 
 export class GeminiLiveWebInterface {
-  constructor(apiKey) {
+  constructor(apiKey, model) {
     this.ai = new GoogleGenAI({apiKey: apiKey});
-    this.model = 'gemini-2.0-flash-live-001';
+    this.model = model;
     this.config = {
       responseModalities: [Modality.AUDIO],
       speechConfig: {voiceConfig: {prebuiltVoiceConfig: {voiceName: 'Aoede'}}},
@@ -363,6 +363,17 @@ export class GeminiLiveWebInterface {
       bytes[i] = binaryString.charCodeAt(i);
     }
     return bytes.buffer;
+  }
+
+  sendRealtimeText(text) {
+    if (!this.session || !text || !text.trim()) return;
+    try {
+      this.session.sendRealtimeInput({
+        text: text,
+      });
+    } catch (error) {
+      console.error('❌ Error sending text:', error);
+    }
   }
 
   async playAudioChunk(audioData) {
@@ -828,7 +839,7 @@ export class GeminiLiveWebInterface {
 
   async generateSpeech(text) {
     const response = await this.ai.models.generateContent({
-      model: 'gemini-2.5-flash-preview-tts',
+      model: this.model,
       contents: [{parts: [{text: `Say cheerfully: ${text}`}]}],
       config: {
         responseModalities: ['AUDIO'],

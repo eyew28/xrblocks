@@ -146,7 +146,6 @@ export class TextView extends View<TextViewEventMap> {
   /** The total number of lines after text wrapping. */
   lineCount = 0;
 
-  private _onSyncCompleteBound = this.onSyncComplete.bind(this);
   private _initializeTextCalled = false;
   private _text = 'TextView';
   set text(text) {
@@ -302,10 +301,39 @@ export class TextView extends View<TextViewEventMap> {
         : (this.fontSize ?? 0.06);
     ctx.font = `${fontSize * resolution}px ${this.font}`;
     ctx.fillStyle = `#${getColorHex(this.fontColor).toString(16).padStart(6, '0')}`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
+
+    // Use the configured textAlign and compute anchor positions accordingly.
+    const align = this.textAlign as CanvasTextAlign;
+    ctx.textAlign = align;
+    let drawX: number;
+    switch (align) {
+      case 'left':
+        drawX = 0;
+        break;
+      case 'right':
+        drawX = canvas!.width;
+        break;
+      default:
+        drawX = canvas!.width / 2;
+        break;
+    }
+
+    // Map anchorY to canvas textBaseline and Y position.
+    let baseline: CanvasTextBaseline = 'middle';
+    let drawY: number = canvas!.height / 2;
+    if (typeof this.anchorY === 'string') {
+      if (this.anchorY.startsWith('top')) {
+        baseline = 'top';
+        drawY = 0;
+      } else if (this.anchorY.startsWith('bottom')) {
+        baseline = 'bottom';
+        drawY = canvas!.height;
+      }
+    }
+    ctx.textBaseline = baseline;
+
     // TODO: add line-break for canvas-based text.
-    ctx.fillText(this.text, canvas!.width / 2, canvas!.height / 2);
+    ctx.fillText(this.text, drawX, drawY);
 
     if (this.textObj?.material.map) {
       this.textObj.material.map.needsUpdate = true;
@@ -316,7 +344,7 @@ export class TextView extends View<TextViewEventMap> {
    * Callback executed when Troika's text sync is complete.
    * It captures layout data like total height and line count.
    */
-  onSyncComplete() {
+  onSyncComplete = () => {
     if (
       !this.useSDFText ||
       !(this.textObj instanceof Text) ||
@@ -342,7 +370,7 @@ export class TextView extends View<TextViewEventMap> {
       numberOfChars > 0 ? (firstBottom - lastBottom) / lineCount : 0;
     this.lineCount = lineCount;
     this.dispatchEvent({type: 'synccomplete'});
-  }
+  };
 
   /**
    * Private method to perform the actual initialization after the async
@@ -373,7 +401,7 @@ export class TextView extends View<TextViewEventMap> {
       this.textObj.addEventListener(
         // @ts-expect-error Missing type in Troika
         'synccomplete',
-        this._onSyncCompleteBound
+        this.onSyncComplete
       );
 
       if (this.imageOverlay) {
@@ -414,7 +442,7 @@ export class TextView extends View<TextViewEventMap> {
       this.textObj.removeEventListener(
         // @ts-expect-error Missing type in Troika
         'synccomplete',
-        this._onSyncCompleteBound
+        this.onSyncComplete
       );
     }
     super.dispose();

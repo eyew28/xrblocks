@@ -35,7 +35,7 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'Spatial UI',
       collapsed: false,
-      items: ['samples/ModelViewer', 'samples/UI'],
+      items: ['samples/ModelViewer', 'samples/UI', 'samples/UIBlocks'],
     },
     {
       type: 'category',
@@ -57,6 +57,7 @@ const sidebars: SidebarsConfig = {
         'samples/XR-Emoji',
         'samples/Custom-Gestures',
         'samples/RockPaperScissors',
+        'samples/Netblocks',
       ],
     },
     {
@@ -66,6 +67,7 @@ const sidebars: SidebarsConfig = {
       items: [
         'samples/XR-Poet',
         'samples/Gemini-XRObject',
+        'samples/Language-Detector',
         'samples/Gemini-Icebreakers',
       ],
     },
@@ -74,6 +76,7 @@ const sidebars: SidebarsConfig = {
       label: 'Advanced Demos',
       collapsed: false,
       items: [
+        'samples/Portals',
         'samples/Ballpit',
         'samples/BalloonPop',
         'samples/Paint',

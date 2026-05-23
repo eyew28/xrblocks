@@ -1,14 +1,17 @@
 import * as THREE from 'three';
 
+import {GamepadController} from '../../input/GamepadController.js';
 import {Input} from '../../input/Input.js';
 import {Keycodes} from '../../utils/Keycodes';
 import {SimulatorRenderMode} from '../SimulatorConstants';
 import {SimulatorControllerState} from '../SimulatorControllerState';
 import {SimulatorHands} from '../SimulatorHands.js';
+import {SimulatorHandPose} from '../handPoses/HandPoses';
 
 const {A_CODE, D_CODE, E_CODE, Q_CODE, S_CODE, W_CODE} = Keycodes;
 const vector3 = new THREE.Vector3();
 const euler = new THREE.Euler();
+const HAND_POSES = Object.values(SimulatorHandPose);
 
 export class SimulatorControlMode {
   camera!: THREE.Camera;
@@ -23,7 +26,8 @@ export class SimulatorControlMode {
     protected downKeys: Set<Keycodes>,
     protected hands: SimulatorHands,
     protected setStereoRenderMode: (_: SimulatorRenderMode) => void,
-    protected toggleUserInterface: () => void
+    protected toggleUserInterface: () => void,
+    protected cycleSimulatorMode: () => void = () => {}
   ) {}
 
   /**
@@ -41,6 +45,7 @@ export class SimulatorControlMode {
     this.camera = camera;
     this.input = input;
     this.timer = timer;
+    input.gamepadController.init({camera});
   }
 
   onPointerDown(_: MouseEvent) {}
@@ -59,11 +64,27 @@ export class SimulatorControlMode {
   onModeDeactivated() {}
 
   update() {
+    this.updateGamepad();
     this.updateCameraPosition();
     this.updateControllerPositions();
   }
 
+  /**
+   * Poll the gamepad and handle button actions. Called from all modes.
+   */
+  updateGamepad() {
+    const gp = this.input.gamepadController;
+    gp.update();
+    if (gp.userData.connected) {
+      this.updateGamepadUI(gp);
+    }
+  }
+
   updateCameraPosition() {
+    const gp = this.input.gamepadController;
+    // While a modal menu owns gamepad input, don't move the camera.
+    if (gp.menuActive) return;
+
     const deltaTime = this.timer.getDelta();
     const cameraRotation = this.camera.quaternion;
     const cameraPosition = this.camera.position;
@@ -77,6 +98,86 @@ export class SimulatorControlMode {
       .multiplyScalar(deltaTime)
       .applyQuaternion(cameraRotation);
     cameraPosition.add(vector3);
+
+    // Gamepad stick input (if connected). Skip while the tab isn't
+    // focused — the Gamepad API delivers state to every tab, so without
+    // this guard the camera moves in background tabs whenever the user
+    // touches the stick in the foreground tab.
+    if (gp.userData.connected && document.hasFocus()) {
+      const [lx, ly, rx, ry] = gp.getAxes();
+
+      // Left stick → move camera.
+      if (lx !== 0 || ly !== 0) {
+        vector3
+          .set(lx, 0, ly)
+          .multiplyScalar(deltaTime)
+          .applyQuaternion(cameraRotation);
+        cameraPosition.add(vector3);
+      }
+
+      // Right stick → look (yaw + pitch).
+      if (rx !== 0 || ry !== 0) {
+        const LOOK_SPEED = 2.0;
+        euler.setFromQuaternion(cameraRotation, 'YXZ');
+        euler.y -= rx * LOOK_SPEED * deltaTime;
+        euler.x -= ry * LOOK_SPEED * deltaTime;
+        const PI_2 = Math.PI / 2;
+        euler.x = Math.max(-PI_2 + 0.01, Math.min(PI_2 - 0.01, euler.x));
+        cameraRotation.setFromEuler(euler);
+      }
+
+      // Configurable vertical movement bindings (defaults LT/RT, analog).
+      const downVal = gp.getButtonValue(gp.bindings.getBinding('moveDown'));
+      const upVal = gp.getButtonValue(gp.bindings.getBinding('moveUp'));
+      const verticalDelta = (upVal - downVal) * deltaTime;
+      if (verticalDelta !== 0) {
+        cameraPosition.y += verticalDelta;
+      }
+    }
+  }
+
+  /**
+   * Handle gamepad buttons for simulator UI using configurable bindings.
+   */
+  updateGamepadUI(gp: GamepadController) {
+    // Suppress normal actions during rebind or while a modal menu owns input.
+    if (gp.captureActive || gp.menuActive) return;
+
+    const b = gp.bindings;
+
+    if (gp.isButtonJustPressed(b.getBinding('cycleHandPoseLeft'))) {
+      this.cycleHandPose(-1);
+    }
+    if (gp.isButtonJustPressed(b.getBinding('cycleHandPoseRight'))) {
+      this.cycleHandPose(1);
+    }
+    if (gp.isButtonJustPressed(b.getBinding('cycleSimulatorMode'))) {
+      this.cycleSimulatorMode();
+    }
+    if (gp.isButtonJustPressed(b.getBinding('toggleUI'))) {
+      this.toggleUserInterface();
+    }
+    if (gp.isButtonJustPressed(b.getBinding('toggleHand'))) {
+      this.hands.toggleHandedness();
+    }
+    if (gp.isButtonJustPressed(b.getBinding('openSettings'))) {
+      gp.onOpenSettings?.();
+    }
+  }
+
+  cycleHandPose(direction: number) {
+    const idx = this.simulatorControllerState.currentControllerIndex;
+    const currentPose =
+      idx === 0 ? this.hands.leftHandPose : this.hands.rightHandPose;
+    const currentIdx = HAND_POSES.indexOf(currentPose ?? HAND_POSES[0]);
+    const nextIdx =
+      (currentIdx + direction + HAND_POSES.length) % HAND_POSES.length;
+    const nextPose = HAND_POSES[nextIdx];
+    if (idx === 0) {
+      this.hands.setLeftHandLerpPose(nextPose);
+    } else {
+      this.hands.setRightHandLerpPose(nextPose);
+    }
   }
 
   updateControllerPositions() {

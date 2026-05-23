@@ -10,6 +10,15 @@ export class SimulatorUserMode extends SimulatorControlMode {
     this.input.mouseController.disconnect();
   }
 
+  /**
+   * In User mode, hands are hidden — switch to a hand-visible mode
+   * before cycling so the change is visible.
+   */
+  override cycleHandPose(direction: number) {
+    this.cycleSimulatorMode();
+    super.cycleHandPose(direction);
+  }
+
   onPointerDown(event: MouseEvent) {
     if (event.buttons & 1) {
       this.input.mouseController.callSelectStart();

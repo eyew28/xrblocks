@@ -4,6 +4,7 @@ import {DeepPartial} from '../utils/Types';
 import {MeshDetectionOptions} from './mesh/MeshDetectionOptions';
 import {ObjectsOptions} from './objects/ObjectsOptions';
 import {PlanesOptions} from './planes/PlanesOptions';
+import {SoundsOptions} from './sounds/SoundsOptions';
 
 export class WorldOptions {
   debugging = false;
@@ -12,6 +13,7 @@ export class WorldOptions {
   planes = new PlanesOptions();
   objects = new ObjectsOptions();
   meshes = new MeshDetectionOptions();
+  sounds = new SoundsOptions();
 
   constructor(options?: DeepPartial<WorldOptions>) {
     if (options) {
@@ -43,6 +45,15 @@ export class WorldOptions {
   enableMeshDetection() {
     this.enabled = true;
     this.meshes.enable();
+    return this;
+  }
+
+  /**
+   * Enables sound detection.
+   */
+  enableSoundDetection() {
+    this.enabled = true;
+    this.sounds.enable();
     return this;
   }
 }
