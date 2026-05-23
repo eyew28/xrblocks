@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>netblocks · shared room</title>
+    <title>netsplat · multiuser 3DGS</title>
     <link rel="stylesheet" href="../main.css" />
     <style>
       body {
@@ -24,16 +24,6 @@
         pointer-events: none;
         max-width: 360px;
       }
-      #hud a.picker {
-        color: #9177c7;
-        text-decoration: none;
-        pointer-events: auto;
-        opacity: 0.85;
-      }
-      #hud a.picker:hover {
-        opacity: 1;
-        text-decoration: underline;
-      }
       #hud b {
         color: #9177c7;
       }
@@ -42,11 +32,9 @@
 
   <body>
     <div id="hud">
-      <a class="picker" href="../../src/addons/netblocks/samples/"
-        >← netblocks</a
-      >
-      · <b>integration</b><br />
-      Open this page in two tabs to see multiplayer in action.
+      <b>netsplat</b> · multiuser 3DGS<br />
+      Open this page in two tabs to see multiplayer in action.<br />
+      Press <b>1</b> / <b>2</b> or long-pinch to cycle scenes.
     </div>
     <script type="importmap">
       {
@@ -68,14 +56,12 @@
           "@pmndrs/msdfonts": "https://cdn.jsdelivr.net/npm/@pmndrs/msdfonts@1.0.56/dist/index.min.js",
           "@preact/signals-core": "https://cdn.jsdelivr.net/npm/@preact/signals-core@1.12.1/dist/signals-core.mjs",
           "yoga-layout/load": "https://cdn.jsdelivr.net/npm/yoga-layout@3.2.1/dist/src/load.js",
+          "@sparkjsdev/spark": "https://sparkjs.dev/releases/spark/2.0.0/spark.module.js",
           "xrblocks": "../../build/xrblocks.js",
           "xrblocks/addons/": "../../build/addons/"
         }
       }
     </script>
-    <script
-      type="module"
-      src="../../build/addons/netblocks/samples/integration/main.js"
-    ></script>
+    <script type="module" src="./main.js"></script>
   </body>
 </html>
