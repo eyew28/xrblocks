@@ -276,23 +276,28 @@ class NetsplatSample extends NetSample {
     // Cancel any in-progress crossfade.
     this.fadeProgress = null;
     this.nextIndex = null;
-    // Remove ALL loaded splats — not just currentIndex — so a CDN mesh that
-    // finished initializing after we called _applySplat can't ghost the scene.
+    // Initialize the new mesh BEFORE removing old ones. Removing all splats
+    // while none is initializing leaves the SparkRenderer with nothing to
+    // render, which nulls out its internal render target and causes:
+    //   "Cannot set properties of undefined (setting 'encodeLinear')"
+    // in the Simulator's render loop. Keeping the old splat visible until
+    // the new one is fully ready prevents that gap.
+    const mesh = new SplatMesh({fileBytes: buffer, fileName});
+    try {
+      await mesh.initialized;
+    } catch (err) {
+      console.error('[netsplat] failed to load splat:', err);
+      return;
+    }
+    // New mesh is ready — atomically swap: remove all old splats, add new one.
     for (const m of this.splatMeshes) {
       if (m?.parent) xb.scene.remove(m);
     }
-    // SplatMesh accepts fileBytes directly; fileName provides format hint for
-    // formats (.splat, .ksplat) that aren't auto-detected from magic bytes.
-    const mesh = new SplatMesh({fileBytes: buffer, fileName});
+    mesh.position.set(0, -0.15, 0);
+    mesh.quaternion.identity();
+    mesh.scale.set(1.3, 1.3, 1.3);
     this.splatMeshes[this.currentIndex] = mesh;
-    mesh.initialized
-      .then(() => {
-        mesh.position.set(0, -0.15, 0);
-        mesh.quaternion.identity();
-        mesh.scale.set(1.3, 1.3, 1.3);
-        xb.add(mesh);
-      })
-      .catch((err) => console.error('[netsplat] failed to load splat:', err));
+    xb.add(mesh);
   }
 
   // ---- Chat panel --------------------------------------------------------
